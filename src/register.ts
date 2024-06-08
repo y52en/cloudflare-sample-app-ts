@@ -1,4 +1,5 @@
-import { AWW_COMMAND, INVITE_COMMAND } from './commands.js';
+import { RESTPutAPIApplicationCommandsJSONBody } from 'discord-api-types/v10';
+import * as commands from './commands.js';
 import dotenv from 'dotenv';
 import process from 'node:process';
 
@@ -34,7 +35,9 @@ const response = await fetch(url, {
     Authorization: `Bot ${token}`,
   },
   method: 'PUT',
-  body: JSON.stringify([AWW_COMMAND, INVITE_COMMAND]),
+  body: JSON.stringify(
+    Object.values(commands) satisfies RESTPutAPIApplicationCommandsJSONBody,
+  ),
 });
 
 if (response.ok) {

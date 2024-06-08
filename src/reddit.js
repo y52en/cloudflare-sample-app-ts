@@ -1,3 +1,5 @@
+// TODO: Typescriptify this file
+
 /**
  * Reach out to the reddit API, and get the first page of results from
  * r/aww. Filter out posts without readily available images or videos,

@@ -1,6 +1,11 @@
+#:schema node_modules/wrangler/config-schema.json
+
+compatibility_flags = ["nodejs_compat"]
+
 name = "awwbot"
-main = "./src/server.js"
-compatibility_date="2023-05-18"
+main = "./src/server.ts"
+compatibility_date = "2024-06-05"
+
 
 # [secrets]
 # DISCORD_TOKEN

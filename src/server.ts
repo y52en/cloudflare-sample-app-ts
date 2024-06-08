@@ -2,18 +2,25 @@
  * The core server that runs on a Cloudflare worker.
  */
 
-import { AutoRouter } from 'itty-router';
+import { RequestLike, AutoRouter } from 'itty-router';
 import {
-  InteractionResponseType,
-  InteractionType,
   verifyKey,
 } from 'discord-interactions';
 import { AWW_COMMAND, INVITE_COMMAND } from './commands.js';
 import { getCuteUrl } from './reddit.js';
-import { InteractionResponseFlags } from 'discord-interactions';
+import {
+  APIInteraction,
+  APIInteractionResponse,
+  InteractionResponseType,
+  InteractionType,
+  MessageFlags,
+} from 'discord-api-types/v10';
 
 class JsonResponse extends Response {
-  constructor(body, init) {
+  constructor(
+    body: APIInteractionResponse | { error: string },
+    init?: ResponseInit,
+  ) {
     const jsonBody = JSON.stringify(body);
     init = init || {
       headers: {
@@ -29,7 +36,7 @@ const router = AutoRouter();
 /**
  * A simple :wave: hello page to verify the worker is working.
  */
-router.get('/', (request, env) => {
+router.get('/', (request, env: Env) => {
   return new Response(`👋 ${env.DISCORD_APPLICATION_ID}`);
 });
 
@@ -38,7 +45,7 @@ router.get('/', (request, env) => {
  * include a JSON payload described here:
  * https://discord.com/developers/docs/interactions/receiving-and-responding#interaction-object
  */
-router.post('/', async (request, env) => {
+router.post('/', async (request, env: Env) => {
   const { isValid, interaction } = await server.verifyDiscordRequest(
     request,
     env,
@@ -47,21 +54,21 @@ router.post('/', async (request, env) => {
     return new Response('Bad request signature.', { status: 401 });
   }
 
-  if (interaction.type === InteractionType.PING) {
+  if (interaction.type === InteractionType.Ping) {
     // The `PING` message is used during the initial webhook handshake, and is
     // required to configure the webhook in the developer portal.
     return new JsonResponse({
-      type: InteractionResponseType.PONG,
+      type: InteractionResponseType.Pong,
     });
   }
 
-  if (interaction.type === InteractionType.APPLICATION_COMMAND) {
+  if (interaction.type === InteractionType.ApplicationCommand) {
     // Most user commands will come as `APPLICATION_COMMAND`.
     switch (interaction.data.name.toLowerCase()) {
       case AWW_COMMAND.name.toLowerCase(): {
         const cuteUrl = await getCuteUrl();
         return new JsonResponse({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          type: InteractionResponseType.ChannelMessageWithSource,
           data: {
             content: cuteUrl,
           },
@@ -71,10 +78,10 @@ router.post('/', async (request, env) => {
         const applicationId = env.DISCORD_APPLICATION_ID;
         const INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${applicationId}&scope=applications.commands`;
         return new JsonResponse({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          type: InteractionResponseType.ChannelMessageWithSource,
           data: {
             content: INVITE_URL,
-            flags: InteractionResponseFlags.EPHEMERAL,
+            flags: MessageFlags.Ephemeral,
           },
         });
       }
@@ -88,7 +95,19 @@ router.post('/', async (request, env) => {
 });
 router.all('*', () => new Response('Not Found.', { status: 404 }));
 
-async function verifyDiscordRequest(request, env) {
+async function verifyDiscordRequest<T extends InteractionType, U>(
+  request: RequestLike,
+  env: Env,
+): Promise<
+  | {
+      isValid: true;
+      interaction: APIInteraction | null;
+    }
+  | {
+      isValid: false;
+      interaction: null;
+    }
+> {
   const signature = request.headers.get('x-signature-ed25519');
   const timestamp = request.headers.get('x-signature-timestamp');
   const body = await request.text();
@@ -97,7 +116,7 @@ async function verifyDiscordRequest(request, env) {
     timestamp &&
     verifyKey(body, signature, timestamp, env.DISCORD_PUBLIC_KEY);
   if (!isValidRequest) {
-    return { isValid: false };
+    return { isValid: false, interaction: null };
   }
 
   return { interaction: JSON.parse(body), isValid: true };
